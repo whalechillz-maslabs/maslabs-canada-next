@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏔️ Whistler Mountain Biking Guide
 
-## Getting Started
+캐나다 휘슬러 마운틴 바이킹 완벽 가이드 - Next.js + Supabase
 
-First, run the development server:
+## 🚀 프로젝트 개요
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+이 프로젝트는 휘슬러 마운틴 바이킹 여행을 위한 종합 가이드 웹사이트입니다.
+
+### 주요 기능
+- 📊 실제 사용 비용 상세 내역
+- 📸 여행 사진 갤러리 (업로드 기능)
+- 🗺️ 여행 정보 및 팁
+- 💰 비용 분석 및 절약 팁
+
+## 🛠️ 기술 스택
+
+- **Frontend**: Next.js 14 (App Router)
+- **Styling**: Tailwind CSS
+- **Database**: Supabase
+- **Deployment**: Vercel
+- **Language**: TypeScript
+
+## 📁 프로젝트 구조
+
+```
+src/
+├── app/
+│   ├── page.tsx              # 메인 페이지
+│   ├── expenses/
+│   │   └── page.tsx          # 비용 페이지
+│   ├── gallery/
+│   │   └── page.tsx          # 갤러리 페이지
+│   └── layout.tsx            # 공통 레이아웃
+├── lib/
+│   └── supabase.ts           # Supabase 클라이언트
+└── types/
+    └── photo.ts              # 타입 정의
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 배포
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **도메인**: https://canada.maslabs.kr
+- **Vercel**: https://maslabs-canada.vercel.app
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📊 실제 비용 요약
 
-## Learn More
+- **총 비용**: CAD 340.84 (약 ₩341,000)
+- **주요 항목**: 반나절권, 보호장비 렌탈, 주차비, 주유비
 
-To learn more about Next.js, take a look at the following resources:
+## 🔗 관련 링크
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [실제 비용 상세 내역](/expenses)
+- [여행 갤러리](/gallery)
+- [메인 페이지](/)

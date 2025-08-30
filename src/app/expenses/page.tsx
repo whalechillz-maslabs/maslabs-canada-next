@@ -39,8 +39,8 @@ export default function ExpensesPage() {
             📊 총 비용 요약
           </h2>
           <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-8 rounded-lg text-center">
-            <div className="text-5xl font-bold mb-2">CAD 244.50</div>
-            <div className="text-xl">약 ₩245,000</div>
+            <div className="text-5xl font-bold mb-2">CAD 340.84</div>
+            <div className="text-xl">약 ₩341,000</div>
             <div className="text-sm mt-2 opacity-90">
               휘슬러 마운틴 바이킹 1일 여행
             </div>
@@ -203,4 +203,3 @@ export default function ExpensesPage() {
     </div>
   )
 }
-
