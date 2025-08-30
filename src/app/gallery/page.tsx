@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
@@ -29,6 +29,9 @@ export default function GalleryPage() {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [loading, setLoading] = useState(true)
   const [uploadMessage, setUploadMessage] = useState('')
+  const [isDragOver, setIsDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const dropZoneRef = useRef<HTMLDivElement>(null)
 
   // Load photos from database
   useEffect(() => {
@@ -56,15 +59,45 @@ export default function GalleryPage() {
   }
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
+    console.log('File select event:', event.target.files)
+    if (event.target.files && event.target.files.length > 0) {
       setSelectedFiles(event.target.files)
+      setUploadMessage('')
+      console.log('Files selected:', event.target.files.length)
+    }
+  }
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    
+    const files = e.dataTransfer.files
+    console.log('Files dropped:', files.length)
+    
+    if (files && files.length > 0) {
+      setSelectedFiles(files)
       setUploadMessage('')
     }
   }
 
   const handleUpload = async () => {
-    if (!selectedFiles) return
+    if (!selectedFiles) {
+      console.log('No files selected')
+      return
+    }
 
+    console.log('Starting upload for', selectedFiles.length, 'files')
     setIsUploading(true)
     setUploadProgress(0)
     setUploadMessage('')
@@ -72,6 +105,7 @@ export default function GalleryPage() {
     try {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i]
+        console.log('Uploading file:', file.name, file.type, file.size)
         
         // Validate file type
         if (!file.type.startsWith('image/')) {
@@ -91,11 +125,13 @@ export default function GalleryPage() {
 
         if (!response.ok) {
           const error = await response.json()
+          console.error('Upload error:', error)
           setUploadMessage(`Error uploading ${file.name}: ${error.error}`)
           continue
         }
 
         const result = await response.json()
+        console.log('Upload success:', result)
         setUploadMessage(`Successfully uploaded ${file.name}`)
         
         // Update progress
@@ -207,19 +243,52 @@ export default function GalleryPage() {
             📤 사진 업로드
           </h2>
           <div className="space-y-6">
-            {/* File Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                사진 선택
-              </label>
+            {/* Drag and Drop Zone */}
+            <div
+              ref={dropZoneRef}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                isDragOver 
+                  ? 'border-blue-500 bg-blue-50' 
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+            >
+              <div className="text-4xl mb-4">📁</div>
+              <p className="text-lg text-gray-600 mb-2">
+                사진을 여기에 드래그 앤 드롭하거나
+              </p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors"
+              >
+                파일 선택
+              </button>
               <input
+                ref={fileInputRef}
                 type="file"
                 multiple
                 accept="image/*"
                 onChange={handleFileSelect}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                className="hidden"
               />
             </div>
+
+            {/* Selected Files Display */}
+            {selectedFiles && selectedFiles.length > 0 && (
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-800 mb-2">선택된 파일:</h3>
+                <div className="space-y-2">
+                  {Array.from(selectedFiles).map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-white p-2 rounded">
+                      <span className="text-sm text-gray-700">{file.name}</span>
+                      <span className="text-xs text-gray-500">{formatFileSize(file.size)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Upload Progress */}
             {isUploading && (
