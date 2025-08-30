@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     // Validate file size (max 50MB for HEIC files)
     const maxSize = file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic') 
       ? 50 * 1024 * 1024 // 50MB for HEIC
-      : 10 * 1024 * 1024 // 10MB for other formats
+      : 20 * 1024 * 1024 // 10MB for other formats
       
     if (file.size > maxSize) {
       return NextResponse.json({ 

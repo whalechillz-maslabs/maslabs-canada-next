@@ -54,3 +54,53 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to update photo' }, { status: 500 })
   }
 }
+
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+    
+    if (!id) {
+      return NextResponse.json({ error: "Photo ID is required" }, { status: 400 })
+    }
+
+    // Get photo info before deletion
+    const { data: photo, error: fetchError } = await supabase
+      .from("gallery_photos")
+      .select("file_path")
+      .eq("id", id)
+      .single()
+
+    if (fetchError) {
+      return NextResponse.json({ error: "Photo not found" }, { status: 404 })
+    }
+
+    // Delete from database
+    const { error: dbError } = await supabase
+      .from("gallery_photos")
+      .delete()
+      .eq("id", id)
+
+    if (dbError) {
+      return NextResponse.json({ error: dbError.message }, { status: 500 })
+    }
+
+    // Delete from storage
+    if (photo.file_path) {
+      const { error: storageError } = await supabase.storage
+        .from("gallery")
+        .remove([photo.file_path])
+
+      if (storageError) {
+        console.error("Storage deletion error:", storageError)
+        // Dont fail the request if storage deletion fails
+      }
+    }
+
+    return NextResponse.json({ success: true })
+
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to delete photo" }, { status: 500 })
+  }
+}
