@@ -19,7 +19,6 @@ interface Photo {
   category?: string
   uploaded_at: string
   user_id?: string
-  local_url?: string // Added for local storage fallback
 }
 
 export default function GalleryPage() {
@@ -93,11 +92,12 @@ export default function GalleryPage() {
   }
 
   const handleUpload = async () => {
-    if (!selectedFiles || selectedFiles.length === 0) {
-      setUploadMessage('파일을 선택해주세요.')
+    if (!selectedFiles) {
+      console.log('No files selected')
       return
     }
 
+    console.log('Starting upload for', selectedFiles.length, 'files')
     setIsUploading(true)
     setUploadProgress(0)
     setUploadMessage('')
@@ -105,125 +105,50 @@ export default function GalleryPage() {
     try {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i]
-        const progress = ((i + 1) / selectedFiles.length) * 100
-        setUploadProgress(progress)
-
+        console.log('Uploading file:', file.name, file.type, file.size)
+        
         // Validate file type
         if (!file.type.startsWith('image/')) {
           setUploadMessage(`Error: ${file.name} is not an image file`)
           continue
         }
 
-        // Validate file size (max 10MB)
-        const maxSize = 10 * 1024 * 1024
-        if (file.size > maxSize) {
-          setUploadMessage(`Error: ${file.name} is too large (max 10MB)`)
+        // Create form data
+        const formData = new FormData()
+        formData.append('file', file)
+
+        // Upload file
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          console.error('Upload error:', error)
+          setUploadMessage(`Error uploading ${file.name}: ${error.error}`)
           continue
         }
 
-        try {
-          // Create FormData
-          const formData = new FormData()
-          formData.append('file', file)
-
-          // Call upload API
-          const response = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-          })
-
-          const result = await response.json()
-
-          if (!response.ok) {
-            console.error('Upload error:', result)
-            
-            // If RLS error, try local storage fallback
-            if (result.error && result.error.includes('row-level security')) {
-              console.log('RLS error detected, using local storage fallback')
-              
-              // Create local storage entry
-              const localPhoto = {
-                id: `local-${Date.now()}-${i}`,
-                filename: file.name,
-                original_name: file.name,
-                file_path: `local/${file.name}`,
-                file_size: file.size,
-                mime_type: file.type,
-                width: undefined,
-                height: undefined,
-                exif_data: null,
-                location_data: null,
-                tags: extractTagsFromFilename(file.name),
-                category: extractCategoryFromFilename(file.name),
-                uploaded_at: new Date().toISOString(),
-                local_url: URL.createObjectURL(file)
-              }
-              
-              // Add to local photos
-              setPhotos(prev => [localPhoto, ...prev])
-              setUploadMessage(`✅ ${file.name} uploaded to local storage (RLS bypassed)`)
-            } else {
-              setUploadMessage(`Error uploading ${file.name}: ${result.error}`)
-            }
-          } else {
-            console.log('Upload success:', result)
-            setUploadMessage(`✅ ${file.name} uploaded successfully`)
-            await loadPhotos() // Reload photos from database
-          }
-        } catch (error) {
-          console.error('Upload error:', error)
-          setUploadMessage(`Error uploading ${file.name}: ${error}`)
-        }
+        const result = await response.json()
+        console.log('Upload success:', result)
+        setUploadMessage(`Successfully uploaded ${file.name}`)
+        
+        // Update progress
+        setUploadProgress(((i + 1) / selectedFiles.length) * 100)
       }
+
+      // Reload photos after upload
+      await loadPhotos()
+      
     } catch (error) {
-      console.error('Upload process error:', error)
-      setUploadMessage(`Upload failed: ${error}`)
+      console.error('Upload error:', error)
+      setUploadMessage('Upload failed. Please try again.')
     } finally {
       setIsUploading(false)
-      setUploadProgress(0)
       setSelectedFiles(null)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      setUploadProgress(0)
     }
-  }
-
-  // Helper function to extract tags from filename
-  const extractTagsFromFilename = (filename: string) => {
-    const tags = []
-    const lowerFilename = filename.toLowerCase()
-    
-    if (lowerFilename.includes('whistler') || lowerFilename.includes('휘슬러')) {
-      tags.push('휘슬러')
-    }
-    if (lowerFilename.includes('mountain') || lowerFilename.includes('마운틴')) {
-      tags.push('마운틴')
-    }
-    if (lowerFilename.includes('bike') || lowerFilename.includes('바이크')) {
-      tags.push('바이킹')
-    }
-    if (lowerFilename.includes('park') || lowerFilename.includes('파크')) {
-      tags.push('바이크파크')
-    }
-    if (lowerFilename.includes('village') || lowerFilename.includes('빌리지')) {
-      tags.push('휘슬러빌리지')
-    }
-    
-    return tags
-  }
-
-  // Helper function to extract category from filename
-  const extractCategoryFromFilename = (filename: string) => {
-    const lowerFilename = filename.toLowerCase()
-    
-    if (lowerFilename.includes('landscape') || lowerFilename.includes('풍경')) {
-      return 'landscape'
-    }
-    if (lowerFilename.includes('action') || lowerFilename.includes('액션')) {
-      return 'action'
-    }
-    
-    return 'general'
   }
 
   const handlePhotoClick = (photo: Photo) => {
@@ -247,6 +172,121 @@ export default function GalleryPage() {
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  // Helper function to extract tags from filename
+  const extractTagsFromFilename = (filename: string) => {
+    const lowerFilename = filename.toLowerCase()
+    const tags = []
+    
+    // Location-based tags
+    if (lowerFilename.includes('whistler') || lowerFilename.includes('휘슬러')) {
+      tags.push('휘슬러')
+    }
+    if (lowerFilename.includes('vancouver') || lowerFilename.includes('밴쿠버')) {
+      tags.push('밴쿠버')
+    }
+    if (lowerFilename.includes('canada') || lowerFilename.includes('캐나다')) {
+      tags.push('캐나다')
+    }
+    
+    // Activity-based tags
+    if (lowerFilename.includes('mountain') || lowerFilename.includes('마운틴')) {
+      tags.push('마운틴')
+    }
+    if (lowerFilename.includes('bike') || lowerFilename.includes('바이크') || lowerFilename.includes('cycling')) {
+      tags.push('바이킹')
+    }
+    if (lowerFilename.includes('park') || lowerFilename.includes('파크')) {
+      tags.push('바이크파크')
+    }
+    if (lowerFilename.includes('village') || lowerFilename.includes('빌리지')) {
+      tags.push('휘슬러빌리지')
+    }
+    if (lowerFilename.includes('lift') || lowerFilename.includes('리프트')) {
+      tags.push('리프트')
+    }
+    if (lowerFilename.includes('trail') || lowerFilename.includes('트레일')) {
+      tags.push('트레일')
+    }
+    
+    // Content-based tags
+    if (lowerFilename.includes('landscape') || lowerFilename.includes('풍경') || lowerFilename.includes('view')) {
+      tags.push('풍경')
+    }
+    if (lowerFilename.includes('action') || lowerFilename.includes('액션') || lowerFilename.includes('jump')) {
+      tags.push('액션')
+    }
+    if (lowerFilename.includes('portrait') || lowerFilename.includes('인물') || lowerFilename.includes('person')) {
+      tags.push('인물')
+    }
+    if (lowerFilename.includes('food') || lowerFilename.includes('음식') || lowerFilename.includes('restaurant')) {
+      tags.push('음식')
+    }
+    if (lowerFilename.includes('hotel') || lowerFilename.includes('호텔') || lowerFilename.includes('accommodation')) {
+      tags.push('숙박')
+    }
+    
+    // Time-based tags
+    if (lowerFilename.includes('2024') || lowerFilename.includes('2025')) {
+      tags.push('2024-2025')
+    }
+    if (lowerFilename.includes('summer') || lowerFilename.includes('여름')) {
+      tags.push('여름')
+    }
+    if (lowerFilename.includes('winter') || lowerFilename.includes('겨울')) {
+      tags.push('겨울')
+    }
+    
+    // Equipment tags
+    if (lowerFilename.includes('helmet') || lowerFilename.includes('헬멧')) {
+      tags.push('헬멧')
+    }
+    if (lowerFilename.includes('bike') || lowerFilename.includes('자전거')) {
+      tags.push('자전거')
+    }
+    
+    // Default tags for Whistler photos
+    if (tags.length === 0) {
+      tags.push('휘슬러', '캐나다')
+    }
+    
+    return [...new Set(tags)] // Remove duplicates
+  }
+
+  // Helper function to extract category from filename
+  const extractCategoryFromFilename = (filename: string) => {
+    const lowerFilename = filename.toLowerCase()
+    
+    if (lowerFilename.includes('landscape') || lowerFilename.includes('풍경') || lowerFilename.includes('view')) {
+      return 'landscape'
+    }
+    if (lowerFilename.includes('action') || lowerFilename.includes('액션') || lowerFilename.includes('jump')) {
+      return 'action'
+    }
+    if (lowerFilename.includes('portrait') || lowerFilename.includes('인물') || lowerFilename.includes('person')) {
+      return 'portrait'
+    }
+    if (lowerFilename.includes('food') || lowerFilename.includes('음식') || lowerFilename.includes('restaurant')) {
+      return 'food'
+    }
+    if (lowerFilename.includes('hotel') || lowerFilename.includes('호텔') || lowerFilename.includes('accommodation')) {
+      return 'accommodation'
+    }
+    
+    // Try to determine from tags
+    const tags = extractTagsFromFilename(filename)
+    if (tags.includes('풍경') || tags.includes('휘슬러')) {
+      return 'landscape'
+    }
+    if (tags.includes('바이킹') || tags.includes('액션')) {
+      return 'action'
+    }
+    if (tags.includes('인물')) {
+      return 'portrait'
+    }
+    
+    return 'general'
   }
 
   return (
@@ -467,7 +507,7 @@ export default function GalleryPage() {
                 >
                   <div className="aspect-w-16 aspect-h-9 bg-gray-200 flex items-center justify-center">
                     <img
-                      src={photo.local_url || getImageUrl(photo.file_path)}
+                      src={getImageUrl(photo.file_path)}
                       alt={photo.original_name}
                       className="w-full h-48 object-cover"
                       onError={(e) => {
@@ -528,7 +568,7 @@ export default function GalleryPage() {
               </div>
               <div className="bg-gray-100 rounded-lg p-8 mb-4 flex items-center justify-center">
                 <img
-                  src={selectedPhoto.local_url || getImageUrl(selectedPhoto.file_path)}
+                  src={getImageUrl(selectedPhoto.file_path)}
                   alt={selectedPhoto.original_name}
                   className="max-w-full max-h-96 object-contain"
                   onError={(e) => {
