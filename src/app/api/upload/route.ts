@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import heic2any from 'heic2any'
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,41 +40,16 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Convert HEIC to JPEG if needed
-    let processedFile = file
-    let fileExtension = file.name.split('.').pop()
-    let mimeType = file.type
-    
-    if (file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic')) {
-      try {
-        console.log('Converting HEIC to JPEG...')
-        const convertedBlob = await heic2any({
-          blob: file,
-          toType: 'image/jpeg',
-          quality: 0.8
-        })
-        
-        processedFile = new File([convertedBlob as Blob], file.name.replace(/\.heic$/i, '.jpg'), {
-          type: 'image/jpeg'
-        })
-        fileExtension = 'jpg'
-        mimeType = 'image/jpeg'
-        console.log('HEIC conversion successful')
-      } catch (error) {
-        console.error('HEIC conversion failed:', error)
-        // Continue with original file if conversion fails
-      }
-    }
-
     // Generate unique filename
     const timestamp = Date.now()
+    const fileExtension = file.name.split('.').pop()
     const filename = `${timestamp}-${Math.random().toString(36).substring(2)}.${fileExtension}`
     const filePath = `photos/${filename}`
     
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from('gallery')
-      .upload(filePath, processedFile, {
+      .upload(filePath, file, {
         cacheControl: '3600',
         upsert: false
       })
@@ -91,7 +65,7 @@ export async function POST(request: NextRequest) {
       .getPublicUrl(filePath)
 
     // Extract image metadata
-    const imageMetadata = await extractImageMetadata(processedFile)
+    const imageMetadata = await extractImageMetadata(file)
 
     // Save metadata to database
     const { data: dbData, error: dbError } = await supabase
@@ -101,7 +75,7 @@ export async function POST(request: NextRequest) {
         original_name: file.name,
         file_path: filePath,
         file_size: file.size,
-        mime_type: mimeType,
+        mime_type: file.type,
         width: imageMetadata.width,
         height: imageMetadata.height,
         exif_data: imageMetadata.exif,

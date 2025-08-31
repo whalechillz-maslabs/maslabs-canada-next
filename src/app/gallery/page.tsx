@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import heic2any from 'heic2any'
 
 interface Photo {
   id: string
@@ -104,13 +105,34 @@ export default function GalleryPage() {
 
     try {
       for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i]
+        let file = selectedFiles[i]
         console.log('Uploading file:', file.name, file.type, file.size)
         
         // Validate file type
         if (!file.type.startsWith('image/')) {
           setUploadMessage(`Error: ${file.name} is not an image file`)
           continue
+        }
+
+        // Convert HEIC to JPEG if needed
+        if (file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic')) {
+          try {
+            console.log('Converting HEIC to JPEG...')
+            const convertedBlob = await heic2any({
+              blob: file,
+              toType: 'image/jpeg',
+              quality: 0.8
+            })
+            
+            file = new File([convertedBlob as Blob], file.name.replace(/\.heic$/i, '.jpg'), {
+              type: 'image/jpeg'
+            })
+            console.log('HEIC conversion successful')
+          } catch (error) {
+            console.error('HEIC conversion failed:', error)
+            setUploadMessage(`Error converting HEIC file ${file.name}: ${error}`)
+            continue
+          }
         }
 
         // Create form data
