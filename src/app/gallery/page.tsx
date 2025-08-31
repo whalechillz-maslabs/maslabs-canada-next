@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import heic2any from 'heic2any'
 
 interface Photo {
   id: string
@@ -118,6 +117,7 @@ export default function GalleryPage() {
         if (file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic')) {
           try {
             console.log('Converting HEIC to JPEG...')
+            const heic2any = (await import('heic2any')).default
             const convertedBlob = await heic2any({
               blob: file,
               toType: 'image/jpeg',
