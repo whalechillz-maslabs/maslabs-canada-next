@@ -159,6 +159,8 @@ export default function GalleryPage() {
     setSelectedPhoto(null)
   }
 
+
+
   const getImageUrl = (filePath: string) => {
     const { data } = supabase.storage
       .from('gallery')
@@ -633,35 +635,3 @@ export default function GalleryPage() {
     </div>
   )
 }
-
-  const handleDeletePhoto = async (photoId: string) => {
-    if (!confirm("🗑️ 이 사진을 삭제하시겠습니까?")) {
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/photos?id=${photoId}`, {
-        method: "DELETE"
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        setUploadMessage(`Error deleting photo: ${error.error}`)
-        return
-      }
-
-      setUploadMessage("✅ 사진이 삭제되었습니다.")
-      await loadPhotos() // Reload photos
-    } catch (error) {
-      console.error("Delete error:", error)
-      setUploadMessage("❌ 삭제 중 오류가 발생했습니다.")
-    }
-  }
-
-  const handleClearSelection = () => {
-    setSelectedFiles(null)
-    setUploadMessage("")
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
-  }
