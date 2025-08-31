@@ -159,6 +159,31 @@ export default function GalleryPage() {
     setSelectedPhoto(null)
   }
 
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!confirm("🗑️ 이 사진을 삭제하시겠습니까?")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/photos?id=${photoId}`, {
+        method: "DELETE"
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        setUploadMessage(`Error deleting photo: ${error.error}`)
+        return
+      }
+
+      setUploadMessage("✅ 사진이 삭제되었습니다.")
+      closeModal() // 모달 닫기
+      await loadPhotos() // 갤러리 새로고침
+    } catch (error) {
+      console.error("Delete error:", error)
+      setUploadMessage("❌ 삭제 중 오류가 발생했습니다.")
+    }
+  }
+
 
 
   const getImageUrl = (filePath: string) => {
@@ -612,6 +637,16 @@ export default function GalleryPage() {
                     )}
                   </div>
                 </div>
+              </div>
+              
+              {/* 삭제 버튼 */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <button
+                  onClick={() => handleDeletePhoto(selectedPhoto.id)}
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                >
+                  🗑️ 사진 삭제
+                </button>
               </div>
             </div>
           </div>
