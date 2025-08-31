@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import heic2any from 'heic2any'
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,16 +41,41 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
+    // Convert HEIC to JPEG if needed
+    let processedFile = file
+    let fileExtension = file.name.split('.').pop()
+    let mimeType = file.type
+    
+    if (file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic')) {
+      try {
+        console.log('Converting HEIC to JPEG...')
+        const convertedBlob = await heic2any({
+          blob: file,
+          toType: 'image/jpeg',
+          quality: 0.8
+        })
+        
+        processedFile = new File([convertedBlob as Blob], file.name.replace(/\.heic$/i, '.jpg'), {
+          type: 'image/jpeg'
+        })
+        fileExtension = 'jpg'
+        mimeType = 'image/jpeg'
+        console.log('HEIC conversion successful')
+      } catch (error) {
+        console.error('HEIC conversion failed:', error)
+        // Continue with original file if conversion fails
+      }
+    }
+
     // Generate unique filename
     const timestamp = Date.now()
-    const fileExtension = file.name.split('.').pop()
     const filename = `${timestamp}-${Math.random().toString(36).substring(2)}.${fileExtension}`
     const filePath = `photos/${filename}`
     
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from('gallery')
-      .upload(filePath, file, {
+      .upload(filePath, processedFile, {
         cacheControl: '3600',
         upsert: false
       })
@@ -65,7 +91,7 @@ export async function POST(request: NextRequest) {
       .getPublicUrl(filePath)
 
     // Extract image metadata
-    const imageMetadata = await extractImageMetadata(file)
+    const imageMetadata = await extractImageMetadata(processedFile)
 
     // Save metadata to database
     const { data: dbData, error: dbError } = await supabase
@@ -75,7 +101,7 @@ export async function POST(request: NextRequest) {
         original_name: file.name,
         file_path: filePath,
         file_size: file.size,
-        mime_type: file.type,
+        mime_type: mimeType,
         width: imageMetadata.width,
         height: imageMetadata.height,
         exif_data: imageMetadata.exif,
@@ -133,18 +159,26 @@ async function extractImageMetadata(file: File) {
     // Clean up object URL
     URL.revokeObjectURL(objectUrl)
 
-    // Extract tags from filename
+    // Extract tags from filename and add default tags for better categorization
     const filename = file.name.toLowerCase()
     const extractedTags = []
     
-    // Add tags based on filename
+    // Location-based tags
     if (filename.includes('whistler') || filename.includes('휘슬러')) {
       extractedTags.push('휘슬러')
     }
+    if (filename.includes('vancouver') || filename.includes('밴쿠버')) {
+      extractedTags.push('밴쿠버')
+    }
+    if (filename.includes('canada') || filename.includes('캐나다')) {
+      extractedTags.push('캐나다')
+    }
+    
+    // Activity-based tags
     if (filename.includes('mountain') || filename.includes('마운틴')) {
       extractedTags.push('마운틴')
     }
-    if (filename.includes('bike') || filename.includes('바이크')) {
+    if (filename.includes('bike') || filename.includes('바이크') || filename.includes('cycling')) {
       extractedTags.push('바이킹')
     }
     if (filename.includes('park') || filename.includes('파크')) {
@@ -153,13 +187,57 @@ async function extractImageMetadata(file: File) {
     if (filename.includes('village') || filename.includes('빌리지')) {
       extractedTags.push('휘슬러빌리지')
     }
-    if (filename.includes('landscape') || filename.includes('풍경')) {
+    if (filename.includes('lift') || filename.includes('리프트')) {
+      extractedTags.push('리프트')
+    }
+    if (filename.includes('trail') || filename.includes('트레일')) {
+      extractedTags.push('트레일')
+    }
+    
+    // Content-based tags
+    if (filename.includes('landscape') || filename.includes('풍경') || filename.includes('view')) {
       extractedTags.push('풍경')
       metadata.category = 'landscape'
     }
-    if (filename.includes('action') || filename.includes('액션')) {
+    if (filename.includes('action') || filename.includes('액션') || filename.includes('jump')) {
       extractedTags.push('액션')
       metadata.category = 'action'
+    }
+    if (filename.includes('portrait') || filename.includes('인물') || filename.includes('person')) {
+      extractedTags.push('인물')
+      metadata.category = 'portrait'
+    }
+    if (filename.includes('food') || filename.includes('음식') || filename.includes('restaurant')) {
+      extractedTags.push('음식')
+      metadata.category = 'food'
+    }
+    if (filename.includes('hotel') || filename.includes('호텔') || filename.includes('accommodation')) {
+      extractedTags.push('숙박')
+      metadata.category = 'accommodation'
+    }
+    
+    // Time-based tags
+    if (filename.includes('2024') || filename.includes('2025')) {
+      extractedTags.push('2024-2025')
+    }
+    if (filename.includes('summer') || filename.includes('여름')) {
+      extractedTags.push('여름')
+    }
+    if (filename.includes('winter') || filename.includes('겨울')) {
+      extractedTags.push('겨울')
+    }
+    
+    // Equipment tags
+    if (filename.includes('helmet') || filename.includes('헬멧')) {
+      extractedTags.push('헬멧')
+    }
+    if (filename.includes('bike') || filename.includes('자전거')) {
+      extractedTags.push('자전거')
+    }
+    
+    // Add default tags for better categorization
+    if (extractedTags.length === 0) {
+      extractedTags.push('휘슬러', '캐나다', '여행')
     }
 
     metadata.tags = extractedTags
@@ -171,6 +249,9 @@ async function extractImageMetadata(file: File) {
 
   } catch (error) {
     console.error('Error extracting image metadata:', error)
+    // Set default tags even if metadata extraction fails
+    metadata.tags = ['휘슬러', '캐나다', '여행']
+    metadata.category = 'general'
   }
 
   return metadata
